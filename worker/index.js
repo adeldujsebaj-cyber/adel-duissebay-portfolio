@@ -1,3 +1,4 @@
+import {pdfViewerCSS} from './pdf-viewer.js';
 import { defaults,knownRecord,loadProfile,loadPortfolio,loadDocuments,administrator,HttpError,validate,validateRecord,escapeHtml,initials } from './data.js';
 import * as render from './render.js';
 import CSS from './styles.js';
@@ -108,7 +109,7 @@ async function serveFile(request,env,url){
 export default{async fetch(request,env){
  const url=new URL(request.url);let path=url.pathname;
  try{
-  if(path==='/style.css')return response(CSS+ABOUT_CSS+COMPANIES_CSS+ACTION_CSS+VIDEO_CSS+DECLARATION_CSS+CAPSTONE_CSS+EVIDENCE_CSS+ARTIFACT_CSS,'text/css; charset=utf-8');
+  if(path==='/style.css')return response(CSS+ABOUT_CSS+COMPANIES_CSS+ACTION_CSS+VIDEO_CSS+DECLARATION_CSS+CAPSTONE_CSS+EVIDENCE_CSS+ARTIFACT_CSS+pdfViewerCSS,'text/css; charset=utf-8');
   if(path==='/app.js')return response(publicJS,'text/javascript; charset=utf-8');
   if(path==='/admin.js')return response(adminJS,'text/javascript; charset=utf-8');
   if(path.startsWith('/company-media/')){

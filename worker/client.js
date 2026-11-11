@@ -1,6 +1,8 @@
+import {pdfViewerJS} from './pdf-viewer.js';
 import {videoPublicJS,videoUploadJS} from './video-client.js';
 export const publicJS=String.raw`
 ${videoPublicJS}
+${pdfViewerJS}
 const slidePlayer=document.querySelector('.capstone-player');
 if(slidePlayer){const titles=JSON.parse(document.querySelector('#capstone-slide-titles').textContent);const image=document.querySelector('#capstone-slide-image');const previous=slidePlayer.querySelector('[data-slide-previous]');const next=slidePlayer.querySelector('[data-slide-next]');let current=1;function showSlide(number){current=Math.min(titles.length,Math.max(1,number));image.src='/capstone/slides/'+current+'.jpg';image.alt='Slide '+current+': '+titles[current-1];document.querySelector('#capstone-slide-counter').textContent=current+' / '+titles.length;document.querySelector('#capstone-slide-title').textContent=titles[current-1];previous.disabled=current===1;next.disabled=current===titles.length;slidePlayer.querySelectorAll('[data-slide]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.slide)===current)));if(current<titles.length){const preload=new Image();preload.src='/capstone/slides/'+(current+1)+'.jpg';}}previous.addEventListener('click',()=>showSlide(current-1));next.addEventListener('click',()=>showSlide(current+1));slidePlayer.querySelectorAll('[data-slide]').forEach(button=>button.addEventListener('click',()=>showSlide(Number(button.dataset.slide))));slidePlayer.addEventListener('keydown',event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();showSlide(current+(event.key==='ArrowRight'?1:-1));}});}
 const menu=document.querySelector('.menu-toggle');const nav=document.querySelector('#main-nav');

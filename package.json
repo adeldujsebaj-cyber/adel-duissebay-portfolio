@@ -18,6 +18,7 @@
     "node": "24.x"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.95.3"
+    "@supabase/supabase-js": "2.95.3",
+    "pdfjs-dist": "6.5.438"
   }
 }

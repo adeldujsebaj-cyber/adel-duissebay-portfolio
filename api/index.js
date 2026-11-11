@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import {Readable} from 'node:stream';
 import worker,{response} from '../worker/index.js';
 import {client,bindings,publicURL,bucket,check} from '../server/supabase.js';
@@ -12,6 +13,8 @@ const isOwner=u=>u?.email===ownerEmail&&!!u.email_confirmed_at;
 const csrf=(req,url)=>{if(req.headers.get('origin')!==url.origin)throw Object.assign(new Error('Submit this form from the website.'),{status:403});};
 export async function handle(request){
  const url=new URL(request.url),path=url.pathname;
+ if(path.startsWith('/pdfjs/')){const tail=path.slice(7);if(!/^(pdf(?:\.worker)?\.min\.mjs|(?:standard_fonts|cmaps|wasm)\/[A-Za-z0-9_.-]+)$/.test(tail))return json({error:'Not found'},404);try{const folder=tail.endsWith('.mjs')?'legacy/build/':'';const data=await readFile(new URL('../node_modules/pdfjs-dist/'+folder+tail,import.meta.url));return response(data,tail.endsWith('.mjs')?'text/javascript':tail.endsWith('.wasm')?'application/wasm':'application/octet-stream',200,{'Cache-Control':'public, max-age=86400'});}catch{return json({error:'Not found'},404);}}
+
  const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
  try{
  if(token){const r=await sb.auth.getUser(token);user=r.data?.user;if(r.error&&values.refresh_token){const refresh=await client().auth.refreshSession({refresh_token:values.refresh_token});if(refresh.data.session){token=refresh.data.session.access_token;user=refresh.data.user;authCookies=cookies(refresh.data.session);sb=client(token);}}}
@@ -47,7 +50,7 @@ export async function handle(request){
  const headers=new Headers(request.headers);headers.delete('oai-authenticated-user-id');headers.delete('oai-authenticated-user-email');if(isOwner(user)){headers.set('oai-authenticated-user-id',user.id);headers.set('oai-authenticated-user-email',user.email);}
  let result=await worker.fetch(new Request(request,{headers}),env);
  if(result.headers.get('content-type')?.includes('text/html')){let html=await result.text();if(path==='/admin')html=html.replace('Signed in with ChatGPT','Signed in securely').replace('<a href="/" target="_blank"','<a href="/admin/security">Account security</a><form action="/auth/logout" method="post"><button class="button button-outline" type="submit">Sign out</button></form><a href="/" target="_blank"');result=new Response(html,{status:result.status,headers:result.headers});}
- const storage=process.env.SUPABASE_URL;result.headers.set('Content-Security-Policy',`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; img-src 'self' data: ${storage}; connect-src 'self' ${storage}; frame-src 'self' ${storage}; object-src 'self' ${storage}; media-src 'self' ${storage}; base-uri 'none'; form-action 'self'`);return finish(result);
+ const storage=process.env.SUPABASE_URL;result.headers.set('Content-Security-Policy',`default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; font-src 'self' data: blob:; style-src 'self'; img-src 'self' data: ${storage}; connect-src 'self' ${storage}; frame-src 'self' ${storage}; object-src 'self' ${storage}; media-src 'self' ${storage}; base-uri 'none'; form-action 'self'`);return finish(result);
  }catch(error){console.error('Request failed',error.status||error.code||'server_error');return json({error:error.status?error.message:'The service is temporarily unavailable. Please try again.'},error.status||503);}
 }
 export default async function handler(req,res){

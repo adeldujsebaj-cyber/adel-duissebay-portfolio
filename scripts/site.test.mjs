@@ -344,3 +344,9 @@ test('the new declaration appears in Artifacts and has its own citation-free sou
  const marker=evidence.indexOf('Latest supplied revision: nine coverage rows');assert.ok(marker>0);const end=evidence.indexOf('</article>',marker);const review=evidence.slice(marker,end);assert.ok(review.includes('No cited sources found'));assert.ok(!review.includes('Sources in AI declaration'));
  const current=reviewedFiles.find(file=>file.id==='provided-ai-declaration-signed-2026-11-10');assert.equal(current.citationWorkId,'AI-CURRENT');assert.ok(!extractedSources.some(source=>source.citations.some(cite=>cite.work==='AI-CURRENT')));
 });
+
+test('weekly PDFs render in the record without requiring a download and preserve citation pages',async()=>{
+ const env=environment();const id='weekly-preview-check';await env.DB.prepare('INSERT INTO portfolio_document (id,record_id,name,storage_key,mime,size,created_at) VALUES (?,?,?,?,?,?,?)').bind(id,'W4','Weekly report.pdf','documents/'+id,'application/pdf',100,new Date().toISOString()).run();
+ const weekly=await(await worker.fetch(request('/records/W4'),env)).text();assert.ok(weekly.includes('data-pdf-viewer'));assert.ok(weekly.includes('data-pdf-url="/files/'+id+'"'));assert.ok(weekly.includes('Previous page'));assert.ok(weekly.includes('Next page'));
+ const document=await(await worker.fetch(request('/documents/'+id+'?page=3'),env)).text();assert.ok(document.includes('data-pdf-page="3"'));assert.ok(document.includes('/files/'+id+'?download=1'));
+});
