@@ -16,7 +16,7 @@ Local snapshot administrator access is provided only on the loopback development
 
 ## Vercel and Supabase configuration
 
-Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel. `PUBLIC_ORIGIN` defaults to https://adel-duissebay-portfolio.vercel.app. Secrets belong in protected environment settings, never in Git. The runtime uses public keys plus the authenticated owner’s JWT; it does not require a service-role key for public reads or administrator uploads.
+Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel. `PUBLIC_ORIGIN` defaults to https://adel-duissebay-portfolio-adel-8924.vercel.app. Secrets belong in protected environment settings, never in Git. The runtime uses public keys plus the authenticated owner’s JWT; it does not require a service-role key for public reads or administrator uploads.
 
 Database schema and RLS are recorded in `supabase/migrations/`. All tables have RLS enabled. The private authorization function checks the verified email in `auth.users`, rather than user-editable metadata. The first visitor cannot claim ownership.
 

@@ -4,7 +4,7 @@ import {declarationAdmin,declarationPage} from './declaration.js';
 import {capstonePage} from './capstone.js';
 import {evidencePage,evidenceAdmin} from './evidence.js';
 import {artifactsPage} from './artifacts.js';
-export const ORIGIN=globalThis.process?.env?.PUBLIC_ORIGIN||'https://adel-duissebay-portfolio.vercel.app';
+export const ORIGIN=globalThis.process?.env?.PUBLIC_ORIGIN||'https://adel-duissebay-portfolio-adel-8924.vercel.app';
 export const nav=[['/','Home'],['/about','About Me'],['/companies','Companies'],['/artifacts','Artifacts'],['/attestations','Attestations'],['/evidence','Evidence Folder'],['/capstone','Capstone Project'],['/weekly-records','Weekly Records'],['/ai-declaration','AI Declaration']];
 const badge=(text,filled=false)=>`<span class="badge ${filled?'badge-filled':''}">${e(text)}</span>`;
 export function documentsFor(data,id){return data.documents.filter(d=>d.record_id===id);}
