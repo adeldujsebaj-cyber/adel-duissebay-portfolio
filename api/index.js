@@ -1,4 +1,4 @@
-import {readFile} from 'node:fs/promises';
+import {pdfAsset} from '../server/pdf-assets.js';
 import {Readable} from 'node:stream';
 import worker,{response} from '../worker/index.js';
 import {client,bindings,publicURL,bucket,check} from '../server/supabase.js';
@@ -13,9 +13,8 @@ const isOwner=u=>u?.email===ownerEmail&&!!u.email_confirmed_at;
 const csrf=(req,url)=>{if(req.headers.get('origin')!==url.origin)throw Object.assign(new Error('Submit this form from the website.'),{status:403});};
 export async function handle(request){
  const url=new URL(request.url),path=url.pathname;
- if(path.startsWith('/pdfjs/')){const tail=path.slice(7);if(!/^(pdf(?:\.worker)?\.min\.mjs|(?:standard_fonts|cmaps|wasm)\/[A-Za-z0-9_.-]+)$/.test(tail))return json({error:'Not found'},404);try{const folder=tail.endsWith('.mjs')?'legacy/build/':'';const data=await readFile(new URL('../node_modules/pdfjs-dist/'+folder+tail,import.meta.url));return response(data,tail.endsWith('.mjs')?'text/javascript':tail.endsWith('.wasm')?'application/wasm':'application/octet-stream',200,{'Cache-Control':'public, max-age=86400','Content-Security-Policy':"default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' "+process.env.SUPABASE_URL});}catch{return json({error:'Not found'},404);}}
-
- const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
+ if(path.startsWith('/pdfjs/'))return pdfAsset(path);
+  const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
  try{
  if(token){const r=await sb.auth.getUser(token);user=r.data?.user;if(r.error&&values.refresh_token){const refresh=await client().auth.refreshSession({refresh_token:values.refresh_token});if(refresh.data.session){token=refresh.data.session.access_token;user=refresh.data.user;authCookies=cookies(refresh.data.session);sb=client(token);}}}
  const env=bindings(sb,isOwner(user)?user:null);

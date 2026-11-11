@@ -1,3 +1,4 @@
+import {pdfAsset} from '../server/pdf-assets.js';
 // Local-only adapter for the current Cloudflare Worker project.
 // It listens on loopback and provides development identity, SQLite and file storage.
 import {createServer} from 'node:http';
@@ -80,8 +81,10 @@ export async function createLocalEnvironment({root=projectRoot,stateDir=resolve(
 export async function handleLocalRequest(request,env){
  const url=new URL(request.url);
  if(!['localhost','127.0.0.1'].includes(url.hostname))return new Response('Local development only.',{status:421});
+ if(url.pathname.startsWith('/pdfjs/'))return pdfAsset(url.pathname);
  const headers=new Headers(request.headers);headers.set('oai-authenticated-user-id','local-admin');headers.delete('oai-authenticated-user-email');
  const result=await worker.fetch(new Request(request,{headers}),env);
+ result.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; font-src 'self' data: blob:; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'self'; media-src 'self'; base-uri 'none'; form-action 'self'");
  if(url.pathname==='/admin'&&result.headers.get('Content-Type')?.includes('text/html'))return new Response((await result.text()).replace('Signed in with ChatGPT','Local administrator · development'),{status:result.status,headers:result.headers});
  return result;
 }
