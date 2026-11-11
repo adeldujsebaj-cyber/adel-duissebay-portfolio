@@ -1,4 +1,3 @@
-import tls from 'node:tls';
 import {Readable} from 'node:stream';
 import worker,{response} from '../worker/index.js';
 import {client,bindings,publicURL,bucket,check} from '../server/supabase.js';
@@ -13,8 +12,7 @@ const isOwner=u=>u?.email===ownerEmail&&!!u.email_confirmed_at;
 const csrf=(req,url)=>{if(req.headers.get('origin')!==url.origin)throw Object.assign(new Error('Submit this form from the website.'),{status:403});};
 export async function handle(request){
  const url=new URL(request.url),path=url.pathname;
- if(path==='/api/tls-status'){return new Promise(resolve=>{const socket=tls.connect({host:'adel-duissebay-portfolio.vercel.app',port:443,servername:'adel-duissebay-portfolio.vercel.app',rejectUnauthorized:true},()=>{const c=socket.getPeerCertificate();const result={authorized:socket.authorized,subject:c.subject,issuer:c.issuer,subjectaltname:c.subjectaltname,valid_from:c.valid_from,valid_to:c.valid_to};socket.end();resolve(json(result));});socket.setTimeout(10000,()=>socket.destroy(new Error('TLS timeout')));socket.once('error',error=>resolve(json({authorized:false,error:error.code||error.message},503)));});}
-const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
+ const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
  try{
  if(token){const r=await sb.auth.getUser(token);user=r.data?.user;if(r.error&&values.refresh_token){const refresh=await client().auth.refreshSession({refresh_token:values.refresh_token});if(refresh.data.session){token=refresh.data.session.access_token;user=refresh.data.user;authCookies=cookies(refresh.data.session);sb=client(token);}}}
  const env=bindings(sb,isOwner(user)?user:null);
@@ -53,5 +51,5 @@ const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').m
  }catch(error){console.error('Request failed',error.status||error.code||'server_error');return json({error:error.status?error.message:'The service is temporarily unavailable. Please try again.'},error.status||503);}
 }
 export default async function handler(req,res){
- try{const chunks=[];let length=0;for await(const c of req){length+=c.length;if(length>4*1024*1024){res.statusCode=413;res.end('Use direct file upload.');return;}chunks.push(c);}const origin=process.env.PUBLIC_ORIGIN||'https://adel-duissebay-portfolio.vercel.app';const request=new Request(new URL(req.url,origin),{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Buffer.concat(chunks),duplex:'half'}:{})});const response=await handle(request);res.statusCode=response.status;response.headers.forEach((v,k)=>{if(k!=='set-cookie')res.setHeader(k,v)});const setCookies=response.headers.getSetCookie();if(setCookies.length)res.setHeader('Set-Cookie',setCookies);if(req.method==='HEAD'||!response.body){res.end();return;}Readable.fromWeb(response.body).pipe(res);}catch{res.statusCode=503;res.end('Please try again shortly.');}
+ try{const chunks=[];let length=0;for await(const c of req){length+=c.length;if(length>4*1024*1024){res.statusCode=413;res.end('Use direct file upload.');return;}chunks.push(c);}const canonical=process.env.PUBLIC_ORIGIN||'https://adel-duissebay-portfolio.vercel.app';const trustedHosts=new Set([new URL(canonical).host,'adel-duissebay-portfolio-adel-8924.vercel.app','adel-duissebay-portfolio-git-main-adel-8924.vercel.app',process.env.VERCEL_URL].filter(Boolean));const host=String(req.headers.host||'');const origin=trustedHosts.has(host)?'https://'+host:canonical;const request=new Request(new URL(req.url,origin),{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Buffer.concat(chunks),duplex:'half'}:{})});const response=await handle(request);res.statusCode=response.status;response.headers.forEach((v,k)=>{if(k!=='set-cookie')res.setHeader(k,v)});const setCookies=response.headers.getSetCookie();if(setCookies.length)res.setHeader('Set-Cookie',setCookies);if(req.method==='HEAD'||!response.body){res.end();return;}Readable.fromWeb(response.body).pipe(res);}catch{res.statusCode=503;res.end('Please try again shortly.');}
 }
