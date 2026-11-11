@@ -1,0 +1,7 @@
+export default String.raw`
+.video-player{display:block;width:100%;max-height:75vh;min-height:220px;background:var(--navy);border:1px solid var(--light-line)}
+.record-video{margin:0 0 30px}.record-video>h3{font-family:var(--serif);font-size:26px;margin-bottom:18px}.record-video .video-player{max-height:520px}.video-caption{display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin-top:13px}.video-caption>span{font-size:11px;color:var(--ink-muted);overflow-wrap:anywhere}.video-caption>a{font-size:12px;font-weight:700;color:var(--blue)}.video-help{font-size:11px;line-height:1.8;color:var(--ink-muted);margin:15px 0 0}.video-error{font-size:12px;line-height:1.8;color:var(--ink-muted);padding:16px 0;margin:0}.video-error[hidden]{display:none}
+.upload-progress{width:100%;height:12px;margin-top:18px;accent-color:var(--gold)}.upload-progress[hidden]{display:none}.upload-action-buttons{display:flex;align-items:center;gap:14px}.upload-action-buttons>[hidden]{display:none}.upload-limits{font-size:10px;color:var(--muted);margin-top:10px;line-height:1.8}
+.admin-document>.badge{color:var(--gold);border-color:rgba(197,164,109,.5)}
+@media(max-width:600px){.video-player{min-height:190px}.record-video>h3{font-size:24px}.video-caption{align-items:flex-start;flex-direction:column;gap:10px}.video-caption>span{font-size:10px}.video-caption>a{font-size:12px}.upload-action-buttons{display:flex;flex-direction:column;align-items:stretch}.upload-limits{font-size:9px}.video-help{font-size:10px}}
+`;

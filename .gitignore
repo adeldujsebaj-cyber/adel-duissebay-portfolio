@@ -1,0 +1,11 @@
+node_modules/
+dist/
+work/
+outputs/
+.wrangler/
+.env*
+.dev.vars*
+*.log
+
+.local-state/
+backup/

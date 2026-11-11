@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1794312438357,
+      "tag": "0000_mushy_unus",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794313347714,
+      "tag": "0001_melodic_overlord",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794317688039,
+      "tag": "0002_flowery_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794317944578,
+      "tag": "0003_unknown_shaman",
+      "breakpoints": true
+    }
+  ]
+}

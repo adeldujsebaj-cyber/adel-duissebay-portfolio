@@ -1,0 +1,1 @@
+ALTER TABLE `portfolio_video_upload` ADD `state` text DEFAULT 'uploading' NOT NULL;
