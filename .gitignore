@@ -11,3 +11,6 @@ outputs/
 backup/
 
 .vercel/
+
+supabase/.temp/
+public/
