@@ -1,3 +1,4 @@
+import tls from 'node:tls';
 import {Readable} from 'node:stream';
 import worker,{response} from '../worker/index.js';
 import {client,bindings,publicURL,bucket,check} from '../server/supabase.js';
@@ -11,7 +12,9 @@ const redirect=path=>response(null,'text/plain',303,{Location:path});
 const isOwner=u=>u?.email===ownerEmail&&!!u.email_confirmed_at;
 const csrf=(req,url)=>{if(req.headers.get('origin')!==url.origin)throw Object.assign(new Error('Submit this form from the website.'),{status:403});};
 export async function handle(request){
- const url=new URL(request.url),path=url.pathname;const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
+ const url=new URL(request.url),path=url.pathname;
+ if(path==='/api/tls-status'){return new Promise(resolve=>{const socket=tls.connect({host:'adel-duissebay-portfolio.vercel.app',port:443,servername:'adel-duissebay-portfolio.vercel.app',rejectUnauthorized:true},()=>{const c=socket.getPeerCertificate();const result={authorized:socket.authorized,subject:c.subject,issuer:c.issuer,subjectaltname:c.subjectaltname,valid_from:c.valid_from,valid_to:c.valid_to};socket.end();resolve(json(result));});socket.setTimeout(10000,()=>socket.destroy(new Error('TLS timeout')));socket.once('error',error=>resolve(json({authorized:false,error:error.code||error.message},503)));});}
+const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
  try{
  if(token){const r=await sb.auth.getUser(token);user=r.data?.user;if(r.error&&values.refresh_token){const refresh=await client().auth.refreshSession({refresh_token:values.refresh_token});if(refresh.data.session){token=refresh.data.session.access_token;user=refresh.data.user;authCookies=cookies(refresh.data.session);sb=client(token);}}}
  const env=bindings(sb,isOwner(user)?user:null);
