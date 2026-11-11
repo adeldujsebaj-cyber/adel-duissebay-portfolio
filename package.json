@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/build-vercel.mjs",
     "test": "node --test scripts/site.test.mjs",
     "db:generate": "drizzle-kit generate",
-    "dev": "node scripts/local-dev.mjs"
+    "dev": "node scripts/local-dev.mjs",
+    "build:sites": "node scripts/build.mjs"
   },
   "devDependencies": {
     "drizzle-kit": "0.31.10",
@@ -14,6 +15,9 @@
     "esbuild": "^0.25.12"
   },
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.95.3"
   }
 }

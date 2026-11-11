@@ -1,0 +1,9 @@
+.git
+.env*
+work
+backup
+.local-state
+downloads
+node_modules
+.openai
+docs

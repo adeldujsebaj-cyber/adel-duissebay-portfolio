@@ -1,0 +1,54 @@
+import {Readable} from 'node:stream';
+import worker,{response} from '../worker/index.js';
+import {client,bindings,publicURL,bucket,check} from '../server/supabase.js';
+import {selectDeclarationPdf} from '../worker/declaration.js';
+import {knownRecord,escapeHtml as e,loadPortfolio,loadDocuments} from '../worker/data.js';
+import * as render from '../worker/render.js';
+const ownerEmail='adeldujsebaj@gmail.com';
+const cookies=session=>['access_token='+encodeURIComponent(session.access_token)+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age='+session.expires_in,'refresh_token='+encodeURIComponent(session.refresh_token)+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'];
+const json=(data,status=200)=>response(JSON.stringify(data),'application/json',status);
+const redirect=path=>response(null,'text/plain',303,{Location:path});
+const isOwner=u=>u?.email===ownerEmail&&!!u.email_confirmed_at;
+const csrf=(req,url)=>{if(req.headers.get('origin')!==url.origin)throw Object.assign(new Error('Submit this form from the website.'),{status:403});};
+export async function handle(request){
+ const url=new URL(request.url),path=url.pathname;const values=Object.fromEntries((request.headers.get('cookie')||'').split(';').map(s=>s.trim().split('=').map(decodeURIComponent)));let authCookies=[];let token=values.access_token,user=null;let sb=client(token);
+ try{
+ if(token){const r=await sb.auth.getUser(token);user=r.data?.user;if(r.error&&values.refresh_token){const refresh=await client().auth.refreshSession({refresh_token:values.refresh_token});if(refresh.data.session){token=refresh.data.session.access_token;user=refresh.data.user;authCookies=cookies(refresh.data.session);sb=client(token);}}}
+ const env=bindings(sb,isOwner(user)?user:null);
+ const finish=r=>{for(const c of authCookies)r.headers.append('Set-Cookie',c);return r};
+ const authPage=async(message='',setup=false)=>{const data=await loadPortfolio(env);return response(render.shell(data,`<section class="access-page container"><p class="eyebrow">PROTECTED OWNER DASHBOARD</p><h1>${setup?'Secure your account.':'Welcome back.'}</h1><p>${setup?'Choose a password for future administrator sign-ins.':'Sign in to manage your portfolio.'}</p>${message?'<p role="alert">'+e(message)+'</p>':''}<form method="post" action="${setup?'/auth/password':'/auth/login'}"><div class="form-field"><label for="email">Administrator email</label><input id="email" name="email" type="email" value="${ownerEmail}" readonly autocomplete="username"></div><div class="form-field"><label for="password">${setup?'New password':'Password'}</label><input id="password" name="password" type="password" minlength="12" maxlength="128" autocomplete="${setup?'new-password':'current-password'}" required></div><button class="button button-gold" type="submit">${setup?'Save password':'Sign in'}</button></form><p><a href="/">Return to portfolio</a></p></section>`,{path:'/auth/login',title:setup?'Account security':'Administrator sign in'}),'text/html; charset=utf-8',200,{'X-Robots-Tag':'noindex,nofollow','Referrer-Policy':'no-referrer'});};
+ if(path==='/auth/callback'){
+  const type=url.searchParams.get('type');const token_hash=url.searchParams.get('token_hash');if(!token_hash||!['email','magiclink','recovery','signup'].includes(type))return authPage('This sign-in link is invalid.');
+  const result=await client().auth.verifyOtp({token_hash,type});if(result.error||!isOwner(result.data.user))return authPage('This sign-in link has expired or belongs to a different account.');const r=redirect('/admin/security');cookies(result.data.session).forEach(c=>r.headers.append('Set-Cookie',c));return r;
+ }
+ if(path==='/auth/login'){
+  if(request.method==='GET')return isOwner(user)?finish(redirect('/admin')):authPage();csrf(request,url);const form=await request.formData();const password=String(form.get('password')||'');const result=await client().auth.signInWithPassword({email:ownerEmail,password});if(result.error||!isOwner(result.data.user))return authPage('Unable to sign in. Check your password and try again.');const r=redirect('/admin');cookies(result.data.session).forEach(c=>r.headers.append('Set-Cookie',c));return r;
+ }
+ if(path==='/auth/logout'){csrf(request,url);if(token)await sb.auth.signOut();const r=redirect('/');for(const name of ['access_token','refresh_token'])r.headers.append('Set-Cookie',name+'=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0');return r;}
+ if(path==='/admin/security'||path==='/auth/password'){
+  if(!isOwner(user))return redirect('/auth/login');if(request.method==='GET')return finish(await authPage('',true));csrf(request,url);const form=await request.formData();const password=String(form.get('password')||'');if(password.length<12||password.length>128)return authPage('Use 12–128 characters.',true);check(await sb.auth.updateUser({password}));return finish(redirect('/admin'));
+ }
+ if(path==='/admin'&&!isOwner(user))return redirect('/auth/login');
+ if(path==='/api/storage/sign'||path==='/api/storage/complete'){
+  if(request.method!=='POST')return json({error:'Use POST.'},405);csrf(request,url);if(!isOwner(user))return json({error:'Administrator sign-in required.'},401);const data=await request.json();const portrait=['home','about'].includes(data.target);if(data.target&&!portrait)return json({error:'Invalid photograph placement.'},400);const name=String(data.name||'').replace(/[\\/]/g,'_').trim();const types={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',mov:'video/quicktime',mp4:'video/mp4'};const mime=types[name.split('.').pop().toLowerCase()];const max=portrait?8*1024*1024:/\.(mov|mp4)$/i.test(name)?50*1024*1024:20*1024*1024;
+  if(!mime||!name||name.length>180||/[\u0000-\u001f\u007f]/.test(name)||!Number.isSafeInteger(data.size)||data.size<1||data.size>max||(portrait&&!mime.startsWith('image/'))||(!portrait&&!knownRecord(data.recordId)))return json({error:'Choose a supported file within the upload limit.'},400);
+  const id=path.endsWith('/sign')?crypto.randomUUID():data.id;if(!/^[a-f0-9-]{36}$/.test(id))return json({error:'Invalid upload.'},400);const key=portrait?(data.target==='about'?'site/about-portrait':'site/portrait'):'documents/'+id;
+  if(path.endsWith('/sign')){const signed=check(await sb.storage.from(bucket).createSignedUploadUrl(key,{upsert:portrait}));return json({id,key,signedUrl:signed.signedUrl,mime});}
+  const info=await fetch(publicURL(key),{method:'HEAD',cache:'no-store'});if(!info.ok||Number(info.headers.get('content-length'))!==data.size)return json({error:'The upload is incomplete. Please retry.'},400);
+  if(!portrait)check(await sb.from('portfolio_documents').upsert({id,record_id:data.recordId,name,storage_key:key,mime,size:data.size,created_at:new Date().toISOString()}));return json({saved:true,id},201);
+ }
+ if(path.startsWith('/api/video-uploads'))return json({error:'Use the direct Storage upload in the administrator dashboard.'},410);
+ if(path==='/portrait'||path==='/about-portrait')return response(null,'text/plain',307,{Location:publicURL(path==='/portrait'?'site/portrait':'site/about-portrait')});
+ if(path.startsWith('/files/')||path==='/capstone/presentation.pdf'||path==='/ai-declaration/source.pdf'){
+  let id=path.split('/').pop();if(path==='/capstone/presentation.pdf')id='provided-capstone-presentation';if(path==='/ai-declaration/source.pdf'){id=selectDeclarationPdf(await loadDocuments(env))?.id||'provided-ai-declaration-signed-2026-11-10';}
+  let key;if(id.startsWith('provided-')&&['provided-capstone-presentation','provided-ai-declaration','provided-ai-declaration-signed-2026-11-10'].includes(id))key='supplied/'+id+'.pdf';else{const result=check(await sb.from('portfolio_documents').select('storage_key').eq('id',id).maybeSingle());key=result?.storage_key;}if(!key)return json({error:'File not found.'},404);const target=new URL(publicURL(key));if(url.searchParams.get('download')==='1')target.searchParams.set('download','');return response(null,'text/plain',307,{Location:target.href});
+ }
+ const headers=new Headers(request.headers);headers.delete('oai-authenticated-user-id');headers.delete('oai-authenticated-user-email');if(isOwner(user)){headers.set('oai-authenticated-user-id',user.id);headers.set('oai-authenticated-user-email',user.email);}
+ let result=await worker.fetch(new Request(request,{headers}),env);
+ if(result.headers.get('content-type')?.includes('text/html')){let html=await result.text();if(path==='/admin')html=html.replace('Signed in with ChatGPT','Signed in securely').replace('<a href="/" target="_blank"','<a href="/admin/security">Account security</a><form action="/auth/logout" method="post"><button class="button button-outline" type="submit">Sign out</button></form><a href="/" target="_blank"');result=new Response(html,{status:result.status,headers:result.headers});}
+ const storage=process.env.SUPABASE_URL;result.headers.set('Content-Security-Policy',`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self'; img-src 'self' data: ${storage}; connect-src 'self' ${storage}; frame-src 'self' ${storage}; object-src 'self' ${storage}; media-src 'self' ${storage}; base-uri 'none'; form-action 'self'`);return finish(result);
+ }catch(error){console.error('Request failed',error.status||error.code||'server_error');return json({error:error.status?error.message:'The service is temporarily unavailable. Please try again.'},error.status||503);}
+}
+export default async function handler(req,res){
+ try{const chunks=[];let length=0;for await(const c of req){length+=c.length;if(length>4*1024*1024){res.statusCode=413;res.end('Use direct file upload.');return;}chunks.push(c);}const origin=process.env.PUBLIC_ORIGIN||'https://adel-duissebay-portfolio.vercel.app';const request=new Request(new URL(req.url,origin),{method:req.method,headers:req.headers,...(!['GET','HEAD'].includes(req.method)?{body:Buffer.concat(chunks),duplex:'half'}:{})});const response=await handle(request);res.statusCode=response.status;response.headers.forEach((v,k)=>{if(k!=='set-cookie')res.setHeader(k,v)});const setCookies=response.headers.getSetCookie();if(setCookies.length)res.setHeader('Set-Cookie',setCookies);if(req.method==='HEAD'||!response.body){res.end();return;}Readable.fromWeb(response.body).pipe(res);}catch{res.statusCode=503;res.end('Please try again shortly.');}
+}

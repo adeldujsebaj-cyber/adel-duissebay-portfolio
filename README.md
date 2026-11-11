@@ -1,52 +1,25 @@
-> Полный ZIP с документами, видео и фотографиями размещается в **Releases → local-snapshot**. В Git хранятся исходники; перенос на Supabase и Vercel выполняется отдельно.
+# Adel Duissebay — academic portfolio
 
-# Adel Duissebay — AI Business Portfolio
+Public portfolio for Adel Duissebay, AI Business, Astana IT University, Group 2603 AIB.
 
-Полная копия текущего проекта для открытия в Visual Studio Code. В архив входят исходники, снимок содержимого, все загруженные документы, видео Assignment 2 и две фотографии профиля.
+## Production
 
-## Запуск в VS Code
+The Vercel Node.js server renders independent portfolio pages. Supabase Postgres stores the editable profile, records and document metadata. Supabase Storage preserves the original documents and two portraits. Public visitors can browse and download without signing in. Supabase Auth protects the owner dashboard at `/admin`; only the verified owner email is authorized by both the server and database RLS.
 
-1. Распакуйте архив и откройте папку `adel-duissebay-portfolio` через **File → Open Folder**.
-2. Установите Node.js 24 или новее.
-3. Откройте встроенный терминал VS Code:
+File uploads go directly from the owner’s browser to signed Supabase Storage URLs. They do not pass through the Vercel request body limit. Current limits are 50 MiB for MOV/MP4, 20 MiB for other supported documents, and 8 MiB for photographs. The existing Assignment 2 MOV is preserved.
 
-```sh
-npm ci
-npm run dev
-```
+## Open in VS Code
 
-4. Откройте http://127.0.0.1:3000 . Админ-панель: http://127.0.0.1:3000/admin .
+Use Node.js 24, then run `npm ci` and `npm run dev`. The local snapshot runner listens only on http://127.0.0.1:3000 and uses SQLite and local files. With the full backup ZIP, it restores the bundled `backup/` directory. The Git repository excludes that directory and all credentials; production originals are in Supabase Storage.
 
-Можно также запустить проект клавишей **F5**: в архив включена конфигурация VS Code `Run portfolio locally`.
+Local snapshot administrator access is provided only on the loopback development server. Production uses verified Supabase Auth sessions and never trusts client-supplied identity headers.
 
-В локальном режиме администратор определяется автоматически. Сервер слушает только `127.0.0.1`; внешние аккаунты и ключи для локального запуска не нужны. Остановить сервер — **Ctrl+C**.
+## Vercel and Supabase configuration
 
-## Содержимое
+Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel. `PUBLIC_ORIGIN` defaults to https://adel-duissebay-portfolio.vercel.app. Secrets belong in protected environment settings, never in Git. The runtime uses public keys plus the authenticated owner’s JWT; it does not require a service-role key for public reads or administrator uploads.
 
-- `worker/` — страницы, оформление, API, встроенные изображения и PDF.
-- `scripts/local-dev.mjs` — локальный сервер с SQLite и файловым хранилищем.
-- `db/`, `drizzle/` — схема базы и миграции.
-- `backup/snapshot.json` — профиль, тексты и метаданные загрузок.
-- `backup/uploads/` — оригинальные документы и MOV-видео.
-- `backup/portraits/` — фотографии Home и About Me.
-- `backup/bundled/` — три PDF, поставляемые вместе с проектом.
-- `docs/` — документация по содержимому и последним обновлениям.
+Database schema and RLS are recorded in `supabase/migrations/`. All tables have RLS enabled. The private authorization function checks the verified email in `auth.users`, rather than user-editable metadata. The first visitor cannot claim ownership.
 
-При первом запуске сервер восстанавливает снимок в `.local-state/`. Дальнейшие локальные правки сохраняются там и не меняют опубликованный сайт. Для повторного восстановления исходного снимка остановите сервер, удалите `.local-state/` и запустите его снова.
+`npm run build` validates the Vercel server. `npm test` runs the portfolio regression suite. `node --env-file=.env.local --test scripts/migration.test.mjs` runs an integration check against a configured Supabase project, including a temporary test upload that is deleted. That check additionally requires a server-only Supabase secret key.
 
-`backup/` и `.local-state/` добавлены в `.gitignore`: документы предназначены для переноса в хранилище, а не для обязательной публикации в GitHub.
-
-## Проверки и сборка
-
-```sh
-npm test
-npm run build
-```
-
-Сборка создаёт текущий Cloudflare Worker в `dist/server/index.js`.
-
-## Публикация
-
-Это текущая версия на Cloudflare Workers, D1 и R2 с добавленным локальным запуском. Она ещё не перенесена на Vercel и Supabase. Следующий этап после подключения ваших аккаунтов — адаптация базы, файлов, входа администратора и конфигурации публикации для этих платформ.
-
-Git-история, `node_modules`, секретные ключи и данные доступа к сервисам в архив не включены.
+The original Sites build remains available as `npm run build:sites` for archival compatibility.
